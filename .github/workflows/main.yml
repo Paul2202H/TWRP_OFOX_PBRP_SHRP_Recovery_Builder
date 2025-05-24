@@ -14,28 +14,28 @@ on:
       device_codename:
         description: 'Device codename (e.g. whyred)'
         required: true
-        default: 'whyred'
+        default: 'X6837'
       device_tree_url:
-        description: 'Device tree Git URL'
+        description: 'https://github.com/whoisgabutuniverseshit/android_device_infinix_X6837.git'
         required: true
       device_tree_branch:
-        description: 'Device tree Git branch'
+        description: 'Lineage-21'
         required: true
-        default: 'main'
+        default: 'Lineage-21'
       vendor_tree_url:
-        description: 'Vendor tree Git URL'
+        description: 'https://github.com/hunter2986767/vendor_infinix_X6837.git'
         required: true
       vendor_tree_branch:
         description: 'Vendor tree Git branch'
         required: true
-        default: 'main'
+        default: 'fourteen'
       kernel_tree_url:
-        description: 'Kernel tree Git URL'
+        description: 'https://github.com/whoisgabutuniverseshit/device_infinix_X6837-kernel.git'
         required: true
       kernel_tree_branch:
         description: 'Kernel tree Git branch'
         required: true
-        default: 'main'
+        default: 'Lineage-20'
 
 jobs:
   build:
@@ -85,7 +85,7 @@ jobs:
           mka bacon -j$(nproc)
 
       - name: Upload ROM ZIP
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.3
         with:
-          name: ROM-ZIP
-          path: rom/out/target/product/${{ github.event.inputs.device_codename }}/*.zip
+            name: ROM-ZIP
+            path: rom/out/target/product/${{ github.event.inputs.device_codename }}/*.zip
