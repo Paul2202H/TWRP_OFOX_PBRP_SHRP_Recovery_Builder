@@ -3,18 +3,39 @@ name: Build Custom ROM
 on:
   workflow_dispatch:
     inputs:
-      manifest_url:
-        description: 'ROM manifest URL (e.g., https://github.com/LineageOS/android.git)'
+      rom_manifest_url:
+        description: 'ROM manifest URL (e.g. https://github.com/LineageOS/android.git)'
         required: true
         default: 'https://github.com/LineageOS/android.git'
-      manifest_branch:
-        description: 'ROM branch (e.g., lineage-20.0)'
+      rom_branch:
+        description: 'ROM branch (e.g. lineage-20.0)'
         required: true
         default: 'lineage-20.0'
       device_codename:
-        description: 'Device codename (e.g., whyred)'
+        description: 'Device codename (e.g. whyred)'
         required: true
         default: 'whyred'
+      device_tree_url:
+        description: 'Device tree Git URL'
+        required: true
+      device_tree_branch:
+        description: 'Device tree Git branch'
+        required: true
+        default: 'main'
+      vendor_tree_url:
+        description: 'Vendor tree Git URL'
+        required: true
+      vendor_tree_branch:
+        description: 'Vendor tree Git branch'
+        required: true
+        default: 'main'
+      kernel_tree_url:
+        description: 'Kernel tree Git URL'
+        required: true
+      kernel_tree_branch:
+        description: 'Kernel tree Git branch'
+        required: true
+        default: 'main'
 
 jobs:
   build:
@@ -24,14 +45,14 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v3
 
-      - name: Install Dependencies
+      - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y openjdk-8-jdk bc bison build-essential curl flex \
-            g++-multilib gcc-multilib git gnupg gperf imagemagick lib32ncurses5-dev \
-            lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.2-dev \
-            libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool \
-            squashfs-tools xsltproc zip zlib1g-dev
+          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib \
+            gcc-multilib git gnupg gperf imagemagick lib32ncurses5-dev lib32readline-dev \
+            lib32z1-dev liblz4-tool libncurses5-dev libsdl1.2-dev libssl-dev libxml2 \
+            libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip \
+            zlib1g-dev openjdk-8-jdk repo
 
       - name: Set JAVA_HOME
         run: echo "JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64" >> $GITHUB_ENV
@@ -39,23 +60,32 @@ jobs:
       - name: Sync ROM Source
         run: |
           mkdir rom && cd rom
-          repo init -u ${{ github.event.inputs.manifest_url }} -b ${{ github.event.inputs.manifest_branch }}
-          repo sync -c --no-tags --no-clone-bundle --optimized-fetch --prune -j$(nproc)
+          repo init -u ${{ github.event.inputs.rom_manifest_url }} -b ${{ github.event.inputs.rom_branch }}
+          repo sync --force-sync -j$(nproc)
 
-      - name: Setup Build Environment
+      - name: Clone Device Tree, Vendor, and Kernel
         run: |
           cd rom
-          source build/envsetup.sh
-          lunch lineage_${{ github.event.inputs.device_codename }}-userdebug
+          mkdir -p device/xiaomi/${{ github.event.inputs.device_codename }}
+          git clone -b ${{ github.event.inputs.device_tree_branch }} ${{ github.event.inputs.device_tree_url }} device/xiaomi/${{ github.event.inputs.device_codename }}
+          git clone -b ${{ github.event.inputs.vendor_tree_branch }} ${{ github.event.inputs.vendor_tree_url }} vendor/xiaomi/${{ github.event.inputs.device_codename }}
+          git clone -b ${{ github.event.inputs.kernel_tree_branch }} ${{ github.event.inputs.kernel_tree_url }} kernel/xiaomi/${{ github.event.inputs.device_codename }}
+
+      - name: Configure CCACHE
+        run: |
+          sudo apt-get install -y ccache
+          export USE_CCACHE=1
+          ccache -M 10G
 
       - name: Build ROM
         run: |
           cd rom
+          source build/envsetup.sh
+          lunch lineage_${{ github.event.inputs.device_codename }}-userdebug
           mka bacon -j$(nproc)
 
       - name: Upload ROM ZIP
-        if: success()
         uses: actions/upload-artifact@v3
         with:
           name: ROM-ZIP
-          path: rom/out/target/product/${{ github.event.inputs.device_codename }}/lineage-*.zip
+          path: rom/out/target/product/${{ github.event.inputs.device_codename }}/*.zip
